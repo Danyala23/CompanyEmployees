@@ -1,6 +1,7 @@
+using CompanyEmployees.ActionFilters;
 using CompanyEmployees.Extensions;
 using Contracts;
-using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Mvc;
 using NLog;
 
 LogManager.LoadConfiguration(string.Concat(Directory.GetCurrentDirectory(), "/nlog.config"));
@@ -15,16 +16,28 @@ builder.Services.ConfigureLoggerService();
 builder.Services.ConfigureSqlContext(builder.Configuration);
 builder.Services.ConfigureRepositoryManager();
 builder.Services.AddAutoMapper(typeof(Program));
+
+builder.Services.AddScoped<ValidationFilterAttribute>();
+builder.Services.AddScoped<ValidateCompanyExistsAttribute>();
+builder.Services.AddScoped<ValidateEmployeeForCompanyExistsAttribute>();
+
 builder.Services.AddControllers(config =>
 {
     config.RespectBrowserAcceptHeader = true;
     config.ReturnHttpNotAcceptable = true;
-}).AddXmlDataContractSerializerFormatters()
+}).AddNewtonsoftJson()
+.AddXmlDataContractSerializerFormatters()
 .AddCustomCSVFormatter();
+
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.SuppressModelStateInvalidFilter = true;
+});
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
 
 var app = builder.Build();
 
