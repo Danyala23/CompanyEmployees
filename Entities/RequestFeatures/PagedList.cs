@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Entities.RequestFeatures
 {
-    internal class PagedList<T>:List<T>
+    public class PagedList<T>:List<T>
     {
         public MetaData MetaData { get; set; }
 
