@@ -5,19 +5,21 @@ using Contracts;
 using Contracts_;
 using Entities.DataTransferObjects;
 using Entities.Models;
+using Marvin.Cache.Headers;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CompanyEmployees.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [ResponseCache(CacheProfileName = "120SecondsDuration")]
     public class CompaniesController(IRepositoryManager repository, ILoggerManager logger, IMapper mapper) : ControllerBase
     {
         private readonly IRepositoryManager _repository = repository;
         private readonly ILoggerManager _logger = logger;
         private readonly IMapper _mapper = mapper;
 
-        [HttpGet]
+        [HttpGet(Name ="GetCompanies")]
         public async Task<IActionResult> GetCompanies()
         {
             var companies = await _repository.Company.GetAllCompaniesAsync(trackChanges: false);
@@ -27,6 +29,8 @@ namespace CompanyEmployees.Controllers
         }
 
         [HttpGet("{id}", Name = "CompanyById")]
+        [HttpCacheExpiration(CacheLocation = CacheLocation.Public, MaxAge = 60)]
+        [HttpCacheValidation(MustRevalidate = false)]
         public async Task<IActionResult> GetCompany(Guid id)
         {
             var company = await _repository.Company.GetCompanyAsync(id, trackChanges: false);
@@ -42,7 +46,7 @@ namespace CompanyEmployees.Controllers
             }
         }
 
-        [HttpPost]
+        [HttpPost(Name = "CreateCompany")]
         [ServiceFilter(typeof(ValidationFilterAttribute))]
         public async Task<IActionResult> CreateCompany([FromBody] CompanyForCreationDto company)
         {
@@ -131,6 +135,14 @@ namespace CompanyEmployees.Controllers
             await _repository.SaveAsync();
             return NoContent();
         }
+
+        [HttpOptions]
+        public IActionResult GetCompaniesOptions() 
+        { 
+            Response.Headers.Add("Allow", "GET, OPTIONS, POST");
+            return Ok(); 
+        }
+
     }
 
 }

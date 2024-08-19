@@ -1,12 +1,11 @@
 ﻿using AutoMapper;
-using Azure;
 using CompanyEmployees.ActionFilters;
+using CompanyEmployees.Utility;
 using Contracts;
 using Contracts_;
 using Entities.DataTransferObjects;
 using Entities.Models;
 using Entities.RequestFeatures;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json;
@@ -15,15 +14,22 @@ namespace CompanyEmployees.Controllers
 {
     [Route("api/companies/{companyId}/employees")]
     [ApiController]
-    public class EmployeesController(IRepositoryManager repository, ILoggerManager logger, IMapper mapper) : ControllerBase
+    public class EmployeesController(IRepositoryManager repository, ILoggerManager logger, IMapper mapper, IDataShaper<EmployeeDto> dataShaper,
+        EmployeeLinks employeeLinks) : ControllerBase
     {
         private readonly IRepositoryManager _repository = repository;
         private readonly ILoggerManager _logger = logger;
-        private readonly IMapper _mapper = mapper;
+        private readonly IMapper _mapper = mapper; 
+        private readonly IDataShaper<EmployeeDto> _dataShaper = dataShaper;
+        private readonly EmployeeLinks _employeeLinks = employeeLinks;
 
         [HttpGet]
+        [HttpHead]
+        [ServiceFilter(typeof(ValidateMediaTypeAttribute))]
         public async Task<IActionResult> GetEmployeesForCompany(Guid companyId,[FromQuery] EmployeeParameters employeeParameters)
         {
+            if (!employeeParameters.ValidAgeRange) return BadRequest("Max age can't be less than min age.");
+
             var company = await _repository.Company.GetCompanyAsync(companyId, trackChanges: false);
             if (company == null)
             {
@@ -35,10 +41,13 @@ namespace CompanyEmployees.Controllers
             Response.Headers.Add("X-Pagination", JsonConvert.SerializeObject(employeesFromDb.MetaData));
 
             var employeesDto = _mapper.Map<IEnumerable<EmployeeDto>>(employeesFromDb);
-            return Ok(employeesDto);
+
+            var links = _employeeLinks.TryGenerateLinks(employeesDto, employeeParameters.Fields, companyId, HttpContext);
+            return links.HasLinks ? Ok(links.LinkedEntities) : Ok(links.ShapedEntities);
         }
 
         [HttpGet("{id}", Name = "GetEmployeeForCompany")]
+        [ServiceFilter(typeof(ValidateMediaTypeAttribute))]
         public async Task<IActionResult> GetEmployeeForCompany(Guid companyId, Guid id)
         {
             var company = await _repository.Company.GetCompanyAsync(companyId, trackChanges: false);
